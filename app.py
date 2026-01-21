@@ -15,9 +15,9 @@ DEFAULT_BLEED = 3
 
 # --- Typography defaults ---
 DEFAULT_BODY_FONT_SIZE = 32
-DEFAULT_TITLE_FONT_SIZE = 50
+DEFAULT_TITLE_FONT_SIZE = 48
 MIN_FONT_SIZE = 10
-TITLE_BODY_GAP = 4
+TITLE_BODY_GAP = 16
 
 def mm_to_px(mm, dpi=DEFAULT_DPI):
     return int((mm / 25.4) * dpi)
@@ -53,7 +53,7 @@ def parse_markdown(text):
 
 def wrap_plain(draw, text, font, max_width):
     words = text.split()
-    lines = []
+    body_lines = []
     current = ""
 
     for word in words:
@@ -62,16 +62,16 @@ def wrap_plain(draw, text, font, max_width):
             current = test
         else:
             if current:
-                lines.append(current)
+                body_lines.append(current)
             current = word
 
     if current:
-        lines.append(current)
+        body_lines.append(current)
 
-    return lines
+    return body_lines
 
 def wrap_markdown(draw, spans, max_width, font_size):
-    lines = []
+    body_lines = []
     current_line = []
     current_width = 0
 
@@ -86,14 +86,14 @@ def wrap_markdown(draw, spans, max_width, font_size):
                 current_line.append((chunk, style))
                 current_width += w
             else:
-                lines.append(current_line)
+                body_lines.append(current_line)
                 current_line = [(chunk, style)]
                 current_width = w
 
     if current_line:
-        lines.append(current_line)
+        body_lines.append(current_line)
 
-    return lines
+    return body_lines
 
 @app.route("/card")
 def render_card():
@@ -106,9 +106,10 @@ def render_card():
     font_size = request.args.get("font_size", type=int)
     title_size = request.args.get("title_size", type=int)
     auto_format = request.args.get("auto_format", default="false").lower() == "true"
+    center = request.args.get("center", default="false").lower() == "true"
 
-    if not text and not title:
-        abort(400, "At least one of 'text' or 'title' is required")
+    if not title:
+        abort(400, "'title' is required")
 
     # --- Card size ---
     if size:
@@ -146,36 +147,30 @@ def render_card():
     current_y = sy0
 
     # ---------- TITLE (WRAPS BY DEFAULT) ----------
-    if title:
-        if title_size:
-            title_size_final = title_size
-        elif auto_format:
-            title_size_final = int(safe_width * 0.18)
-        else:
-            title_size_final = DEFAULT_TITLE_FONT_SIZE
+    if title_size:
+        title_size_final = title_size
+    elif auto_format:
+        title_size_final = int(safe_width * 0.18)
+    else:
+        title_size_final = DEFAULT_TITLE_FONT_SIZE
 
-        if auto_format:
-            while title_size_final > MIN_FONT_SIZE:
-                title_font = load_font(title_size_final, bold=True)
-                title_lines = wrap_plain(draw, title, title_font, safe_width)
-                title_height = len(title_lines) * title_font.getbbox("Ay")[3]
-
-                # allow reasonable title block height
-                if title_height <= (sy1 - sy0) * 0.3 or title_size:
-                    break
-
-                title_size_final -= 2
-        else:
+    if auto_format:
+        while title_size_final > MIN_FONT_SIZE:
             title_font = load_font(title_size_final, bold=True)
             title_lines = wrap_plain(draw, title, title_font, safe_width)
             title_height = len(title_lines) * title_font.getbbox("Ay")[3]
 
-        line_height = title_font.getbbox("Ay")[3]
-        for line in title_lines:
-            draw.text((sx0, current_y), line, fill="black", font=title_font)
-            current_y += line_height
+            # allow reasonable title block height
+            if title_height <= (sy1 - sy0) * 0.3 or title_size:
+                break
 
-        current_y += TITLE_BODY_GAP
+            title_size_final -= 2
+    else:
+        title_font = load_font(title_size_final, bold=True)
+        title_lines = wrap_plain(draw, title, title_font, safe_width)
+        title_height = len(title_lines) * title_font.getbbox("Ay")[3]
+
+    title_line_height = title_font.getbbox("Ay")[3]
 
     # ---------- BODY TEXT ----------
     if text:
@@ -191,23 +186,44 @@ def render_card():
 
         if auto_format:
             while body_size > MIN_FONT_SIZE:
-                lines = wrap_markdown(draw, spans, safe_width, body_size)
+                body_lines = wrap_markdown(draw, spans, safe_width, body_size)
                 line_height = load_font(body_size).getbbox("Ay")[3]
-                if len(lines) * line_height <= remaining_height:
+                if len(body_lines) * line_height <= remaining_height:
                     break
                 body_size -= 2
         else:
-            lines = wrap_markdown(draw, spans, safe_width, body_size)
-            line_height = load_font(body_size).getbbox("Ay")[3]
+            body_lines = wrap_markdown(draw, spans, safe_width, body_size)
+            body_line_height = load_font(body_size).getbbox("Ay")[3]
 
+    # ---------- VERTICAL POSITIONING ----------
+    total_content_height = len(title_lines) * title_line_height
+    if text:
+        total_content_height += TITLE_BODY_GAP + len(body_lines) * body_line_height
+
+    current_y = sy0
+    if center:
+        current_y += max(0, ((sy1 - sy0) - total_content_height) / 2)
+
+    # ---------- DRAW TITLE ----------
+    for line in title_lines:
+        x = sx0
+        if center:
+            x += max(0, (safe_width - draw.textlength(line, font=title_font)) // 2)
+        draw.text((x, current_y), line, fill="black", font=title_font)
+        current_y += title_line_height
+
+    current_y += TITLE_BODY_GAP
+
+    # ---------- DRAW BODY ----------
+    if text:
         y = current_y
-        for line in lines:
+        for line in body_lines:
             x = sx0
             for chunk, style in line:
                 font = load_font(body_size, **style)
                 draw.text((x, y), chunk, fill="black", font=font)
                 x += draw.textlength(chunk, font=font)
-            y += line_height
+            y += body_line_height
 
     img_io = io.BytesIO()
     img.save(img_io, "PNG")

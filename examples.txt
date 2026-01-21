@@ -1,0 +1,2 @@
+/card?text=Ace%20of%20Spades&size=200x150&font_size=100&title=title%20long%20and%20complicated%20maybe%20not%20fiting&title_size=200
+/card?text=This%20is%20**bold**,%20*this%20is%20italic*,%20and%20normal&title=title

@@ -14,7 +14,8 @@ DEFAULT_MARGIN = 5
 DEFAULT_BLEED = 3
 
 # --- Typography defaults ---
-DEFAULT_BODY_FONT_SIZE = 24   # px – realistic card text
+DEFAULT_BODY_FONT_SIZE = 32
+DEFAULT_TITLE_FONT_SIZE = 50
 MIN_FONT_SIZE = 10
 TITLE_BODY_GAP = 4
 
@@ -147,20 +148,27 @@ def render_card():
     # ---------- TITLE (WRAPS BY DEFAULT) ----------
     if title:
         if title_size:
-            size_try = title_size
+            title_size_final = title_size
+        elif auto_format:
+            title_size_final = int(safe_width * 0.18)
         else:
-            size_try = int(safe_width * 0.18)
+            title_size_final = DEFAULT_TITLE_FONT_SIZE
 
-        while size_try > MIN_FONT_SIZE:
-            title_font = load_font(size_try, bold=True)
+        if auto_format:
+            while title_size_final > MIN_FONT_SIZE:
+                title_font = load_font(title_size_final, bold=True)
+                title_lines = wrap_plain(draw, title, title_font, safe_width)
+                title_height = len(title_lines) * title_font.getbbox("Ay")[3]
+
+                # allow reasonable title block height
+                if title_height <= (sy1 - sy0) * 0.3 or title_size:
+                    break
+
+                title_size_final -= 2
+        else:
+            title_font = load_font(title_size_final, bold=True)
             title_lines = wrap_plain(draw, title, title_font, safe_width)
             title_height = len(title_lines) * title_font.getbbox("Ay")[3]
-
-            # allow reasonable title block height
-            if title_height <= (sy1 - sy0) * 0.3 or title_size:
-                break
-
-            size_try -= 2
 
         line_height = title_font.getbbox("Ay")[3]
         for line in title_lines:

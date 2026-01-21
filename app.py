@@ -2,6 +2,7 @@ from flask import Flask, request, send_file, abort
 from PIL import Image, ImageDraw, ImageFont
 import io
 import re
+import os
 
 app = Flask(__name__)
 
@@ -21,20 +22,22 @@ TITLE_BODY_GAP = 4
 LIST_INDENT_PX = 24
 LIST_GAP_PX = 4
 
+current_directory = os.getcwd()
+
 def mm_to_px(mm, dpi=DEFAULT_DPI):
     return int((mm / 25.4) * dpi)
 
 def load_font(size, bold=False, italic=False):
     try:
         if bold and italic:
-            return ImageFont.truetype("arialbi.ttf", size)
+            return ImageFont.truetype('/'.join([current_directory, "fonts", "UbuntuNerdFontPropo-BoldItalic.ttf"]), size)
         if bold:
-            return ImageFont.truetype("arialbd.ttf", size)
+            return ImageFont.truetype('/'.join([current_directory, "fonts", "UbuntuNerdFontPropo-Bold.ttf"]), size)
         if italic:
-            return ImageFont.truetype("ariali.ttf", size)
-        return ImageFont.truetype("arial.ttf", size)
+            return ImageFont.truetype('/'.join([current_directory, "fonts", "UbuntuNerdFontPropo-Italic.ttf"]), size)
+        return ImageFont.truetype('/'.join([current_directory, "fonts", "UbuntuNerdFontPropo-Regular.ttf"]), size)
     except IOError:
-        return ImageFont.load_default()
+        return ImageFont.load_default(size)
 
 # ---------- Markdown parsing ----------
 

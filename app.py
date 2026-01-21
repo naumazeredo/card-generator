@@ -120,6 +120,9 @@ def render_card():
     bleed = request.args.get("bleed", type=float, default=DEFAULT_BLEED)
     font_size = request.args.get("font_size", type=int)
     title_size = request.args.get("title_size", type=int)
+    bg_color = request.args.get("bg_color", default="white")
+    border_color = request.args.get("border_color", default="black")
+    border_size_mm = request.args.get("border_size", type=float, default=1)
     auto_format = request.args.get("auto_format", default="false").lower() == "true"
     center = request.args.get("center", default="false").lower() == "true"
 
@@ -132,13 +135,21 @@ def render_card():
     card_h = mm_to_px(height)
     bleed_px = mm_to_px(bleed)
     margin_px = mm_to_px(margin)
+    border_size_px = mm_to_px(border_size_mm)
 
     img = Image.new("RGB", (card_w + bleed_px * 2, card_h + bleed_px * 2), "#eeeeee")
     draw = ImageDraw.Draw(img)
 
     cx0, cy0 = bleed_px, bleed_px
     cx1, cy1 = cx0 + card_w, cy0 + card_h
-    draw.rectangle([cx0, cy0, cx1, cy1], fill="white")
+    draw.rectangle([cx0, cy0, cx1, cy1], fill=bg_color)
+
+    if border_size_px > 0:
+        draw.rectangle(
+            [cx0 + border_size_px, cy0 + border_size_px,
+             cx1 - border_size_px, cy1 - border_size_px],
+            outline=border_color
+        )
 
     sx0 = cx0 + margin_px
     sy0 = cy0 + margin_px
